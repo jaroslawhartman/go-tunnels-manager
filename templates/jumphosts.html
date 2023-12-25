@@ -1,0 +1,39 @@
+{{define "jumphosts" }}
+
+<div class="row justify-content-center align-items-center g-2" style="margin-top: 10px;">
+    <div class="col">
+        <button type="button" class="btn btn-primary">
+            <span class="bi-plus-circle"></span>
+            <b class="d-inline">
+                New Jumphost
+            </b>
+        </button>
+    </div>
+</div>
+<div class="row justify-content-center align-items-center g-2 row-gap-4" size="height: 200px">
+    <div class="col">
+        <hr class="hr" size="height: 200px" />
+    </div>
+</div>
+
+{{range .}}
+    <div class="row justify-content-center align-items-center g-2" style="margin-bottom: 20px;">
+        <div class="col">
+            <div class="card text-start">
+                <div class="card-body">
+                    <h4 class="card-title">{{.Name}}</h4>
+                    <p class="console command">{{.Command}}</p>
+                    <p class="card-text align-content-end">
+                        <button
+                            type="button"
+                            class="btn btn-danger"
+                        >
+                            Delete
+                        </button>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+{{end}}
+{{end}}

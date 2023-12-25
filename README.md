@@ -2,13 +2,12 @@
 
 A tool to manage SSH tunnels.
 
-This mini-project is my learning playground to get more experiences with Golang, HTMLX and Bootstrap.
+This mini-project is my learning playground to get more experiences with Golang, HTMX and Bootstrap.
 
 Very early "Work in progress"...
 
 ![Screenshoot](img/screenshoot.png)
-
-#
+![Screenshoot2](img/screenshoot2.png)
 
 # References
 

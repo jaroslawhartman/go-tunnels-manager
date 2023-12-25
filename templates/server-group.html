@@ -11,10 +11,11 @@
                         <th scope="col">Remote host:port</th>
                         <th scope="col">URL</th>
                         <th scope="col">Details</th>
-                        <th scope="col">State</th>
+                        <th scope="col">Status</th>
                     </tr>
                 </thead>
                 <tbody>
+                    {{$Command := .Command}}
                     {{range .Tunnels}}
                         <tr class="">
                             <td scope="row">{{.Name}}</td>
@@ -24,16 +25,17 @@
                                 <a href="{{.URL}}">{{.URL}}</a>
                             </td>
                             <td>
-                                <a href="#">Command</a>, <a href="#/">Log</a>
+                                <a href="#" data-bs-toggle="tooltip" data-bs-title="{{$Command | html}}">Command</a>,
+                                <a href="#" data-bs-toggle="tooltip" data-bs-title="Tunnel log">Log</a>
                             </td>
                             <td>
-                                {{if eq .State "ok" }}
-                                <a name="" id="" class="btn btn-sm btn-success" href="#" role="button">
+                                {{if eq .Status "ok" }}
+                                <a name="" id="" class="btn btn-sm btn-success" href="#" role="button" data-bs-toggle="tooltip" data-bs-title="The tunnel is up. Press this button to stop.">
                                     <i class="bi-check-circle-fill"></i>
                                     Up
                                 </a>
                                 {{else}}
-                                <a name="" id="" class="btn btn-sm btn-danger" href="#" role="button">
+                                <a name="" id="" class="btn btn-sm btn-danger" href="#" role="button" data-bs-toggle="tooltip" data-bs-title="The tunnel is down. Press this button to start.">
                                     <i class="bi-bootstrap-reboot"></i>
                                     Down
                                 </a>

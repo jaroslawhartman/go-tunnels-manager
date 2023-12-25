@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"html/template"
 	"log"
 
@@ -22,7 +23,7 @@ type Tunnel struct {
 	Local_port int
 	Remote     string
 	URL        string
-	State      string
+	Status     string
 }
 
 type Tunnels []Tunnel
@@ -30,16 +31,26 @@ type Tunnels []Tunnel
 type Jumphost struct {
 	Id      int
 	Name    string
+	Command string
 	Tunnels Tunnels
 }
 
 type Jumphosts []Jumphost
 
+type TemplateArg struct {
+	Page      string
+	Jumphosts Jumphosts
+}
+
 func main() {
-	juphosts := Jumphosts{
+	var addr = flag.String("l", ":3000", "Listening [<host>]:<port>")
+	flag.Parse()
+
+	jumphosts := Jumphosts{
 		{
-			Id:   1,
-			Name: "PreProduction",
+			Id:      1,
+			Name:    "PreProduction",
+			Command: "ssh -NL {Local_port}:{Remote} docker-mtx",
 			Tunnels: Tunnels{
 				{
 					Id:         1,
@@ -48,7 +59,7 @@ func main() {
 					Local_port: 123,
 					Remote:     "1.2.3.4:443",
 					URL:        "https://abcd.jhartman.pl",
-					State:      "ok",
+					Status:     "ok",
 				},
 				{
 					Id:         2,
@@ -57,7 +68,7 @@ func main() {
 					Local_port: 123,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
-					State:      "nok",
+					Status:     "nok",
 				},
 				{
 					Id:         4,
@@ -66,7 +77,7 @@ func main() {
 					Local_port: 123,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
-					State:      "ok",
+					Status:     "ok",
 				},
 				{
 					Id:         5,
@@ -75,7 +86,7 @@ func main() {
 					Local_port: 123,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
-					State:      "nok",
+					Status:     "nok",
 				},
 				{
 					Id:         6,
@@ -84,7 +95,7 @@ func main() {
 					Local_port: 123,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
-					State:      "ok",
+					Status:     "ok",
 				},
 				{
 					Id:         7,
@@ -93,13 +104,14 @@ func main() {
 					Local_port: 123,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
-					State:      "ok",
+					Status:     "ok",
 				},
 			},
 		},
 		{
-			Id:   1,
-			Name: "Production",
+			Id:      1,
+			Name:    "Production",
+			Command: "gcloud beta compute start-iap-tunnel postman-vm 22 --configuration tef-cloudlab2 --listen-on-stdin",
 			Tunnels: Tunnels{
 				{
 					Id:         1,
@@ -108,7 +120,7 @@ func main() {
 					Local_port: 123,
 					Remote:     "11.2.3.4:443",
 					URL:        "https://mbcd.jhartman.pl",
-					State:      "ok",
+					Status:     "ok",
 				},
 				{
 					Id:         2,
@@ -117,33 +129,37 @@ func main() {
 					Local_port: 123,
 					Remote:     "12.2.3.4:443",
 					URL:        "https://nbcd.jhartman.pl",
-					State:      "nok",
+					Status:     "nok",
 				},
 			},
 		},
 	}
 
-	log.Println("Startup")
+	log.Printf("Starting server at %s", *addr)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Get /")
-		tmpl := template.Must(template.ParseFiles("templates/index.html",
+		tmpl := template.Must(template.ParseFiles(
+			"templates/index.html",
 			"templates/tunnels.html",
-			"templates/server-group.html"))
-		tmpl.Execute(w, juphosts)
+			"templates/server-group.html",
+			"templates/jumphosts.html"))
+
+		tmpl.Execute(w, TemplateArg{Page: "tunnels", Jumphosts: jumphosts})
 	})
-	http.ListenAndServe(":3000", r)
 
-	// sweaters := Inventory{"wool", 17}
-	// tmpl, err := template.New("test").Parse("{{.Count}} items are made of {{.Material}}")
+	r.Get("/jumphosts", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Get /jumphosts")
+		tmpl := template.Must(template.ParseFiles(
+			"templates/index.html",
+			"templates/tunnels.html",
+			"templates/server-group.html",
+			"templates/jumphosts.html"))
 
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// err = tmpl.Execute(os.Stdout, sweaters)
-	// if err != nil {
-	// 	panic(err)
-	// }
+		tmpl.Execute(w, TemplateArg{Page: "jumphosts", Jumphosts: jumphosts})
+	})
+
+	http.ListenAndServe(*addr, r)
 }
