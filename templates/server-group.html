@@ -1,0 +1,49 @@
+{{define "server-group" }}
+<div class="card text-start">
+    <div class="card-body">
+        <h4 class="card-title">{{.Name}}</h4>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Local port</th>
+                        <th scope="col">Remote host:port</th>
+                        <th scope="col">URL</th>
+                        <th scope="col">Details</th>
+                        <th scope="col">State</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Tunnels}}
+                        <tr class="">
+                            <td scope="row">{{.Name}}</td>
+                            <td>{{.Local_port}}</td>
+                            <td>{{.Remote}}</td>
+                            <td>
+                                <a href="{{.URL}}">{{.URL}}</a>
+                            </td>
+                            <td>
+                                <a href="#">Command</a>, <a href="#/">Log</a>
+                            </td>
+                            <td>
+                                {{if eq .State "ok" }}
+                                <a name="" id="" class="btn btn-sm btn-success" href="#" role="button">
+                                    <i class="bi-check-circle-fill"></i>
+                                    Up
+                                </a>
+                                {{else}}
+                                <a name="" id="" class="btn btn-sm btn-danger" href="#" role="button">
+                                    <i class="bi-bootstrap-reboot"></i>
+                                    Down
+                                </a>
+                                {{end}}
+                            </td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
