@@ -2,11 +2,17 @@
 
 <div class="row justify-content-center align-items-center g-2" style="margin-top: 10px;">
     <div class="col">
-        <button type="button" class="btn btn-primary">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#tunnel-edit-modal"
+            _="on click remove @value from <input/>">
             <span class="bi-plus-circle"></span>
             <b class="d-inline">
                 New tunnel
             </b>
+        </button>
+
+        <button hidden id="open-modal" type="button" class="btn btn-primary" data-bs-toggle="modal"
+            data-bs-target="#tunnel-edit-modal">
+            Hidden
         </button>
     </div>
 </div>
@@ -16,11 +22,89 @@
     </div>
 </div>
 
-{{range .}}
-    <div class="row justify-content-center align-items-center g-2" style="margin-bottom: 20px;">
-        <div class="col">
-            {{template "server-group" .}}
-        </div>
+{{range .Jumphosts}}
+<div class="row justify-content-center align-items-center g-2" style="margin-bottom: 20px;">
+    <div class="col">
+        {{template "server-group" .}}
     </div>
+</div>
 {{end}}
+
+{{block "tunnel-edit-modal" .}}
+<!-- Modal Body -->
+<!-- if you want to close by clicking outside the modal, delete the last endpoint:data-bs-backdrop and data-bs-keyboard -->
+<div class="modal fade" id="tunnel-edit-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
+    role="dialog" aria-labelledby="modalTitleId" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg" role="document">
+        <form hx-post="/tunnel/update/{{.CurrentTunnel.Id}}"
+            hx-target="#main"
+        class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitleId">
+                    Add tunnel
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3 row">
+                    <label for="inputJumphost" class="col-2 col-form-label">Jumphost</label>
+                    <div class="col">
+                        <select class="form-select" name="inputJumphost" id="inputJumphost">
+                            {{- $Jumphost := .CurrentTunnel.Jumphost}}
+                            {{- range .Jumphosts}}
+                            {{- if eq .Name $Jumphost }}
+                            <option selected value="{{.Name}}">{{.Name}}</option>
+                            {{- else}}
+                            <option value="{{.Name}}">{{.Name}}</option>
+                            {{- end}}
+                            {{- end}}
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="inputName" class="col-1 col-form-label">Name</label>
+                    <div class="col">
+                        <input type="text" class="form-control" name="inputName" id="inputName" placeholder="Name"
+                            value="{{.CurrentTunnel.Name}}" />
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="inputPort" class="col-1 col-form-label">Local</label>
+                    <div class="col-2">
+                        <input type="text" class="form-control" name="inputPort" id="inputPort" placeholder="Port"
+                            value="{{.CurrentTunnel.Local_port}}" />
+                    </div>
+                    <label for="inputRemote" class="col-1 col-form-label">Remote</label>
+                    <div class="col">
+                        <input type="text" class="form-control" name="inputRemote" id="inputRemote" placeholder="host:port"
+                            value="{{.CurrentTunnel.Remote}}" />
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="inputURL" class="col-1 col-form-label">URL</label>
+                    <div class="col-8">
+                        <input type="text" class="form-control" name="inputURL" id="inputURL"
+                            placeholder="http(s)://<server>:<port>/<path>" value="{{.CurrentTunnel.URL}}" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Close
+                </button>
+                <button type="submit" class="btn btn-primary"  data-bs-dismiss="modal">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}
+
+<!-- Optional: Place to the bottom of scripts -->
+<script>
+    document.body.addEventListener("showModal", function(e){
+        var openModalButton = document.getElementById('open-modal');
+        openModalButton.click(); // Trigger the click event
+    })
+</script>
+
 {{end}}

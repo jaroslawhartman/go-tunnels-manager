@@ -4,6 +4,7 @@ import (
 	"flag"
 	"html/template"
 	"log"
+	"strconv"
 
 	"net/http"
 
@@ -38,8 +39,11 @@ type Jumphost struct {
 type Jumphosts []Jumphost
 
 type TemplateArg struct {
-	Page      string
-	Jumphosts Jumphosts
+	Page          string
+	JumphostId    int
+	TunnelId      int
+	CurrentTunnel *Tunnel
+	Jumphosts     Jumphosts
 }
 
 func main() {
@@ -65,7 +69,7 @@ func main() {
 					Id:         2,
 					Jumphost:   "PreProduction",
 					Name:       "Prometheus Cl1",
-					Local_port: 123,
+					Local_port: 124,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
 					Status:     "nok",
@@ -74,7 +78,7 @@ func main() {
 					Id:         4,
 					Jumphost:   "PreProduction",
 					Name:       "Prometheus Cl1",
-					Local_port: 123,
+					Local_port: 125,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
 					Status:     "ok",
@@ -83,7 +87,7 @@ func main() {
 					Id:         5,
 					Jumphost:   "PreProduction",
 					Name:       "Prometheus Cl1",
-					Local_port: 123,
+					Local_port: 126,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
 					Status:     "nok",
@@ -92,7 +96,7 @@ func main() {
 					Id:         6,
 					Jumphost:   "PreProduction",
 					Name:       "Prometheus Cl1",
-					Local_port: 123,
+					Local_port: 127,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
 					Status:     "ok",
@@ -101,7 +105,7 @@ func main() {
 					Id:         7,
 					Jumphost:   "PreProduction",
 					Name:       "Prometheus Cl1",
-					Local_port: 123,
+					Local_port: 128,
 					Remote:     "2.2.3.4:443",
 					URL:        "https://bcde.jhartman.pl",
 					Status:     "ok",
@@ -109,7 +113,7 @@ func main() {
 			},
 		},
 		{
-			Id:      1,
+			Id:      2,
 			Name:    "Production",
 			Command: "gcloud beta compute start-iap-tunnel postman-vm 22 --configuration tef-cloudlab2 --listen-on-stdin",
 			Tunnels: Tunnels{
@@ -117,7 +121,7 @@ func main() {
 					Id:         1,
 					Jumphost:   "Production",
 					Name:       "Grafana Cl1",
-					Local_port: 123,
+					Local_port: 129,
 					Remote:     "11.2.3.4:443",
 					URL:        "https://mbcd.jhartman.pl",
 					Status:     "ok",
@@ -126,7 +130,7 @@ func main() {
 					Id:         2,
 					Jumphost:   "Production",
 					Name:       "Prometheus Cl1",
-					Local_port: 123,
+					Local_port: 130,
 					Remote:     "12.2.3.4:443",
 					URL:        "https://nbcd.jhartman.pl",
 					Status:     "nok",
@@ -134,6 +138,8 @@ func main() {
 			},
 		},
 	}
+
+	var current *Tunnel = nil
 
 	log.Printf("Starting server at %s", *addr)
 
@@ -147,7 +153,19 @@ func main() {
 			"templates/server-group.html",
 			"templates/jumphosts.html"))
 
-		tmpl.Execute(w, TemplateArg{Page: "tunnels", Jumphosts: jumphosts})
+		current = &Tunnel{
+			Id:         7,
+			Jumphost:   "",
+			Name:       "",
+			Local_port: 0,
+			Remote:     "",
+			URL:        "",
+			Status:     "nok",
+		}
+
+		tmpl.Execute(w, TemplateArg{Page: "tunnels", CurrentTunnel: current, Jumphosts: jumphosts})
+
+		current = nil
 	})
 
 	r.Get("/jumphosts", func(w http.ResponseWriter, r *http.Request) {
@@ -159,6 +177,86 @@ func main() {
 			"templates/jumphosts.html"))
 
 		tmpl.Execute(w, TemplateArg{Page: "jumphosts", Jumphosts: jumphosts})
+	})
+
+	r.Get("/tunnel/get/{JumphostId}/{TunnelId}", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Get /tunnel/get/")
+		jummphostId, _ := strconv.Atoi(chi.URLParam(r, "JumphostId"))
+		tunnelId, _ := strconv.Atoi(chi.URLParam(r, "TunnelId"))
+
+		log.Println(jummphostId)
+		log.Println(tunnelId)
+
+	OuterLoop:
+		for _, j := range jumphosts {
+			for _, t := range j.Tunnels {
+				if j.Id == jummphostId && t.Id == tunnelId {
+					current = &t
+					log.Println("Found tunnel")
+					log.Println(current)
+					break OuterLoop
+				}
+			}
+		}
+
+		tmpl := template.Must(template.ParseFiles(
+			"templates/index.html",
+			"templates/tunnels.html",
+			"templates/server-group.html",
+			"templates/jumphosts.html"))
+
+		w.Header().Set("HX-Trigger-After-Settle", "showModal")
+
+		tmpl.ExecuteTemplate(w, "tunnel-edit-modal", TemplateArg{
+			Page:          "jumphosts",
+			JumphostId:    jummphostId,
+			TunnelId:      tunnelId,
+			CurrentTunnel: current,
+			Jumphosts:     jumphosts})
+	})
+
+	r.Post("/tunnel/update/{TunnelId}", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Get /tunnel/update/")
+		tunnelId, _ := strconv.Atoi(chi.URLParam(r, "TunnelId"))
+		log.Println(tunnelId)
+
+		inputJumphost := r.FormValue("inputJumphost")
+		inputName := r.FormValue("inputName")
+		inputPort := r.FormValue("inputPort")
+		inputRemote := r.FormValue("inputRemote")
+		inputURL := r.FormValue("inputURL")
+
+		log.Println("inputJumphost:" + inputJumphost)
+		log.Println("inputName:" + inputName)
+		log.Println("inputPort:" + inputPort)
+		log.Println("inputRemote:" + inputRemote)
+		log.Println("inputURL:" + inputURL)
+
+		jumphosts[0].Tunnels[0].Jumphost = inputJumphost
+		jumphosts[0].Tunnels[0].Name = inputName
+		jumphosts[0].Tunnels[0].Local_port, _ = strconv.Atoi(inputPort)
+		jumphosts[0].Tunnels[0].Remote = inputRemote
+		jumphosts[0].Tunnels[0].URL = inputURL
+
+		tmpl := template.Must(template.ParseFiles(
+			"templates/index.html",
+			"templates/tunnels.html",
+			"templates/server-group.html",
+			"templates/jumphosts.html"))
+
+		current = &Tunnel{
+			Id:         7,
+			Jumphost:   "",
+			Name:       "",
+			Local_port: 0,
+			Remote:     "",
+			URL:        "",
+			Status:     "nok",
+		}
+
+		tmpl.ExecuteTemplate(w, "tunnels", TemplateArg{Page: "tunnels", CurrentTunnel: current, Jumphosts: jumphosts})
+
+		current = nil
 	})
 
 	http.ListenAndServe(*addr, r)
