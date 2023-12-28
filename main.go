@@ -10,136 +10,25 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	d "jhartman.pl/go-tunnels-ui/db"
 )
-
-type Inventory struct {
-	Material string
-	Count    uint
-}
-
-type Tunnel struct {
-	Id         int
-	Jumphost   string
-	Name       string
-	Local_port int
-	Remote     string
-	URL        string
-	Status     string
-}
-
-type Tunnels []Tunnel
-
-type Jumphost struct {
-	Id      int
-	Name    string
-	Command string
-	Tunnels Tunnels
-}
-
-type Jumphosts []Jumphost
 
 type TemplateArg struct {
 	Page          string
+	Error         string
 	JumphostId    int
 	TunnelId      int
-	CurrentTunnel *Tunnel
-	Jumphosts     Jumphosts
+	CurrentTunnel int
+	Jumphosts     d.Jumphosts
+	Tunnels       d.Tunnels
 }
 
 func main() {
+	db := d.Open("tunnels.sqlite")
+	defer d.Close(db)
+
 	var addr = flag.String("l", ":3000", "Listening [<host>]:<port>")
 	flag.Parse()
-
-	jumphosts := Jumphosts{
-		{
-			Id:      1,
-			Name:    "PreProduction",
-			Command: "ssh -NL {Local_port}:{Remote} docker-mtx",
-			Tunnels: Tunnels{
-				{
-					Id:         1,
-					Jumphost:   "PreProduction",
-					Name:       "Grafana Cl1",
-					Local_port: 123,
-					Remote:     "1.2.3.4:443",
-					URL:        "https://abcd.jhartman.pl",
-					Status:     "ok",
-				},
-				{
-					Id:         2,
-					Jumphost:   "PreProduction",
-					Name:       "Prometheus Cl1",
-					Local_port: 124,
-					Remote:     "2.2.3.4:443",
-					URL:        "https://bcde.jhartman.pl",
-					Status:     "nok",
-				},
-				{
-					Id:         4,
-					Jumphost:   "PreProduction",
-					Name:       "Prometheus Cl1",
-					Local_port: 125,
-					Remote:     "2.2.3.4:443",
-					URL:        "https://bcde.jhartman.pl",
-					Status:     "ok",
-				},
-				{
-					Id:         5,
-					Jumphost:   "PreProduction",
-					Name:       "Prometheus Cl1",
-					Local_port: 126,
-					Remote:     "2.2.3.4:443",
-					URL:        "https://bcde.jhartman.pl",
-					Status:     "nok",
-				},
-				{
-					Id:         6,
-					Jumphost:   "PreProduction",
-					Name:       "Prometheus Cl1",
-					Local_port: 127,
-					Remote:     "2.2.3.4:443",
-					URL:        "https://bcde.jhartman.pl",
-					Status:     "ok",
-				},
-				{
-					Id:         7,
-					Jumphost:   "PreProduction",
-					Name:       "Prometheus Cl1",
-					Local_port: 128,
-					Remote:     "2.2.3.4:443",
-					URL:        "https://bcde.jhartman.pl",
-					Status:     "ok",
-				},
-			},
-		},
-		{
-			Id:      2,
-			Name:    "Production",
-			Command: "gcloud beta compute start-iap-tunnel postman-vm 22 --configuration tef-cloudlab2 --listen-on-stdin",
-			Tunnels: Tunnels{
-				{
-					Id:         1,
-					Jumphost:   "Production",
-					Name:       "Grafana Cl1",
-					Local_port: 129,
-					Remote:     "11.2.3.4:443",
-					URL:        "https://mbcd.jhartman.pl",
-					Status:     "ok",
-				},
-				{
-					Id:         2,
-					Jumphost:   "Production",
-					Name:       "Prometheus Cl1",
-					Local_port: 130,
-					Remote:     "12.2.3.4:443",
-					URL:        "https://nbcd.jhartman.pl",
-					Status:     "nok",
-				},
-			},
-		},
-	}
-
-	var current *Tunnel = nil
 
 	log.Printf("Starting server at %s", *addr)
 
@@ -150,22 +39,12 @@ func main() {
 		tmpl := template.Must(template.ParseFiles(
 			"templates/index.html",
 			"templates/tunnels.html",
-			"templates/server-group.html",
 			"templates/jumphosts.html"))
 
-		current = &Tunnel{
-			Id:         7,
-			Jumphost:   "",
-			Name:       "",
-			Local_port: 0,
-			Remote:     "",
-			URL:        "",
-			Status:     "nok",
-		}
+		tunnels := d.GetTunnels(db, "")
+		jumphosts := d.GetJumphosts(db)
 
-		tmpl.Execute(w, TemplateArg{Page: "tunnels", CurrentTunnel: current, Jumphosts: jumphosts})
-
-		current = nil
+		tmpl.Execute(w, TemplateArg{Page: "tunnels", CurrentTunnel: 0, Jumphosts: jumphosts, Tunnels: tunnels})
 	})
 
 	r.Get("/jumphosts", func(w http.ResponseWriter, r *http.Request) {
@@ -173,45 +52,53 @@ func main() {
 		tmpl := template.Must(template.ParseFiles(
 			"templates/index.html",
 			"templates/tunnels.html",
-			"templates/server-group.html",
 			"templates/jumphosts.html"))
 
-		tmpl.Execute(w, TemplateArg{Page: "jumphosts", Jumphosts: jumphosts})
+		jumphosts := d.GetJumphosts(db)
+
+		tmpl.Execute(w, TemplateArg{Page: "jumphosts", Jumphosts: jumphosts, Tunnels: nil})
 	})
 
-	r.Get("/tunnel/get/{JumphostId}/{TunnelId}", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Get /tunnel/get/")
-		jummphostId, _ := strconv.Atoi(chi.URLParam(r, "JumphostId"))
-		tunnelId, _ := strconv.Atoi(chi.URLParam(r, "TunnelId"))
+	r.Delete("/jumphost/delete/{Id}", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Get /jumphost/delete/")
+		id, _ := strconv.Atoi(chi.URLParam(r, "Id"))
+		log.Println(id)
 
-		log.Println(jummphostId)
-		log.Println(tunnelId)
-
-	OuterLoop:
-		for _, j := range jumphosts {
-			for _, t := range j.Tunnels {
-				if j.Id == jummphostId && t.Id == tunnelId {
-					current = &t
-					log.Println("Found tunnel")
-					log.Println(current)
-					break OuterLoop
-				}
-			}
-		}
+		err := d.DeleteJumphost(db, id)
 
 		tmpl := template.Must(template.ParseFiles(
 			"templates/index.html",
 			"templates/tunnels.html",
-			"templates/server-group.html",
 			"templates/jumphosts.html"))
+
+		jumphosts := d.GetJumphosts(db)
+
+		tmpl.ExecuteTemplate(w, "jumphosts", TemplateArg{
+			Page:      "jumphosts",
+			Error:     err,
+			Jumphosts: jumphosts,
+			Tunnels:   nil})
+	})
+
+	r.Get("/tunnel/get/{TunnelId}", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Get /tunnel/get/")
+		tunnelId, _ := strconv.Atoi(chi.URLParam(r, "TunnelId"))
+
+		log.Println(tunnelId)
+
+		tmpl := template.Must(template.ParseFiles(
+			"templates/index.html",
+			"templates/tunnels.html",
+			"templates/jumphosts.html"))
+
+		tunnels := d.GetTunnels(db, "")
+		jumphosts := d.GetJumphosts(db)
 
 		w.Header().Set("HX-Trigger-After-Settle", "showModal")
 
 		tmpl.ExecuteTemplate(w, "tunnel-edit-modal", TemplateArg{
-			Page:          "jumphosts",
-			JumphostId:    jummphostId,
-			TunnelId:      tunnelId,
-			CurrentTunnel: current,
+			CurrentTunnel: tunnelId,
+			Tunnels:       tunnels,
 			Jumphosts:     jumphosts})
 	})
 
@@ -220,44 +107,102 @@ func main() {
 		tunnelId, _ := strconv.Atoi(chi.URLParam(r, "TunnelId"))
 		log.Println(tunnelId)
 
-		inputJumphost := r.FormValue("inputJumphost")
+		inputJumphost, _ := strconv.Atoi(r.FormValue("inputJumphost"))
 		inputName := r.FormValue("inputName")
-		inputPort := r.FormValue("inputPort")
+		inputPort, _ := strconv.Atoi(r.FormValue("inputPort"))
 		inputRemote := r.FormValue("inputRemote")
 		inputURL := r.FormValue("inputURL")
 
-		log.Println("inputJumphost:" + inputJumphost)
-		log.Println("inputName:" + inputName)
-		log.Println("inputPort:" + inputPort)
-		log.Println("inputRemote:" + inputRemote)
-		log.Println("inputURL:" + inputURL)
-
-		jumphosts[0].Tunnels[0].Jumphost = inputJumphost
-		jumphosts[0].Tunnels[0].Name = inputName
-		jumphosts[0].Tunnels[0].Local_port, _ = strconv.Atoi(inputPort)
-		jumphosts[0].Tunnels[0].Remote = inputRemote
-		jumphosts[0].Tunnels[0].URL = inputURL
+		err := d.UpdateTunnel(db, tunnelId, &d.Tunnel{
+			JumphostId: inputJumphost,
+			Name:       inputName,
+			Local_port: inputPort,
+			Remote:     inputRemote,
+			URL:        inputURL,
+		})
 
 		tmpl := template.Must(template.ParseFiles(
 			"templates/index.html",
 			"templates/tunnels.html",
-			"templates/server-group.html",
 			"templates/jumphosts.html"))
 
-		current = &Tunnel{
-			Id:         7,
-			Jumphost:   "",
-			Name:       "",
-			Local_port: 0,
-			Remote:     "",
-			URL:        "",
-			Status:     "nok",
-		}
+		tunnels := d.GetTunnels(db, "")
+		jumphosts := d.GetJumphosts(db)
 
-		tmpl.ExecuteTemplate(w, "tunnels", TemplateArg{Page: "tunnels", CurrentTunnel: current, Jumphosts: jumphosts})
+		tmpl.ExecuteTemplate(w, "tunnels", TemplateArg{
+			Page:          "tunnels",
+			Error:         err,
+			CurrentTunnel: 0,
+			Tunnels:       tunnels,
+			Jumphosts:     jumphosts})
+	})
 
-		current = nil
+	r.Post("/tunnel/add", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Get /tunnel/add/")
+
+		inputJumphost, _ := strconv.Atoi(r.FormValue("inputJumphost"))
+		inputName := r.FormValue("inputName")
+		inputPort, _ := strconv.Atoi(r.FormValue("inputPort"))
+		inputRemote := r.FormValue("inputRemote")
+		inputURL := r.FormValue("inputURL")
+
+		err := d.AddTunnel(db, &d.Tunnel{
+			JumphostId: inputJumphost,
+			Name:       inputName,
+			Local_port: inputPort,
+			Remote:     inputRemote,
+			URL:        inputURL,
+		})
+
+		tmpl := template.Must(template.ParseFiles(
+			"templates/index.html",
+			"templates/tunnels.html",
+			"templates/jumphosts.html"))
+
+		tunnels := d.GetTunnels(db, "")
+		jumphosts := d.GetJumphosts(db)
+
+		tmpl.ExecuteTemplate(w, "tunnels", TemplateArg{
+			Page:          "tunnels",
+			Error:         err,
+			CurrentTunnel: 0,
+			Tunnels:       tunnels,
+			Jumphosts:     jumphosts})
+	})
+
+	r.Delete("/tunnel/delete/{TunnelId}", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Get /tunnel/delete/")
+		tunnelId, _ := strconv.Atoi(chi.URLParam(r, "TunnelId"))
+		log.Println(tunnelId)
+
+		err := d.DeleteTunnel(db, tunnelId)
+
+		tmpl := template.Must(template.ParseFiles(
+			"templates/index.html",
+			"templates/tunnels.html",
+			"templates/jumphosts.html"))
+
+		tunnels := d.GetTunnels(db, "")
+		jumphosts := d.GetJumphosts(db)
+
+		tmpl.ExecuteTemplate(w, "tunnels", TemplateArg{
+			Page:          "tunnels",
+			Error:         err,
+			CurrentTunnel: 0,
+			Tunnels:       tunnels,
+			Jumphosts:     jumphosts})
 	})
 
 	http.ListenAndServe(*addr, r)
+	// go func() {
+	// 	http.ListenAndServe(*addr, r)
+	// }()
+
+	// main loop
+
+	// for {
+	// 	log.Printf("Help")
+
+	// 	time.Sleep(1 * time.Second)
+	// }
 }

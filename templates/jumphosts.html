@@ -1,5 +1,15 @@
 {{define "jumphosts" }}
 
+{{with .Error }}
+<div class="row justify-content-center align-items-center g-2" style="margin-top: 10px;">
+    <div class="col">
+        <div class="alert alert-danger" role="alert">
+            {{.}}
+        </div>
+    </div>
+</div>
+{{end}}
+
 <div class="row justify-content-center align-items-center g-2" style="margin-top: 10px;">
     <div class="col">
         <button type="button" class="btn btn-primary">
@@ -16,17 +26,18 @@
     </div>
 </div>
 
-{{range .}}
+{{range $jumphost_id, $jumphost := .Jumphosts}}
     <div class="row justify-content-center align-items-center g-2" style="margin-bottom: 20px;">
         <div class="col">
             <div class="card text-start">
                 <div class="card-body">
-                    <h4 class="card-title">{{.Name}}</h4>
-                    <p class="console command">{{.Command}}</p>
+                    <h4 class="card-title">{{$jumphost.Name}}</h4>
+                    <p class="console command">{{$jumphost.Command}}</p>
                     <p class="card-text align-content-end">
-                        <button
-                            type="button"
-                            class="btn btn-danger"
+                        <button type="button" class="btn btn-danger"
+                        hx-trigger="click" hx-delete="jumphost/delete/{{$jumphost_id}}"
+                                            hx-confirm="Are you sure to delete {{$jumphost.Name}} jumphost?"
+                                            hx-swap="innerHTML" hx-target="#main"
                         >
                             Delete
                         </button>

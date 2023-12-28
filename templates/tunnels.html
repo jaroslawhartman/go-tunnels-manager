@@ -1,5 +1,15 @@
 {{define "tunnels" }}
 
+{{with .Error }}
+<div class="row justify-content-center align-items-center g-2" style="margin-top: 10px;">
+    <div class="col">
+        <div class="alert alert-danger" role="alert">
+            {{.}}
+        </div>
+    </div>
+</div>
+{{end}}
+
 <div class="row justify-content-center align-items-center g-2" style="margin-top: 10px;">
     <div class="col">
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#tunnel-edit-modal"
@@ -22,10 +32,84 @@
     </div>
 </div>
 
-{{range .Jumphosts}}
+{{ $Tunnels := .Tunnels }}
+{{range $jumphost_id, $jumphost := .Jumphosts}}
 <div class="row justify-content-center align-items-center g-2" style="margin-bottom: 20px;">
     <div class="col">
-        {{template "server-group" .}}
+        <div class="card text-start">
+            <div class="card-body">
+                <h4 class="card-title">{{$jumphost.Name}}</h4>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Local port</th>
+                                <th scope="col">Remote host:port</th>
+                                <th scope="col">URL</th>
+                                <th scope="col">Details</th>
+                                <th scope="col">Status</th>
+                                <th scope="col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{$Command := $jumphost.Command}}
+                            {{range $tunnel_id, $tunnel := $.Tunnels}}
+                            {{if eq $tunnel.JumphostId $jumphost_id }}
+                            <tr class="">
+                                <td scope="row">{{.Name}}</td>
+                                <td>{{.Local_port}}</td>
+                                <td>{{.Remote}}</td>
+                                <td>
+                                    <a href="{{.URL}}" target="_blank">{{.URL}}</a>
+                                </td>
+                                <td>
+                                    <a href="#" data-bs-toggle="tooltip"
+                                        data-bs-title="{{$Command | html}}">Command</a>,
+                                    <a href="#" data-bs-toggle="tooltip" data-bs-title="Tunnel log">Log</a>
+                                </td>
+                                <td>
+                                    {{if eq .Status 1 }}
+                                    <a name="" id="" class="btn btn-sm btn-success" href="#" role="button"
+                                        data-bs-toggle="tooltip"
+                                        data-bs-title="The tunnel is up. Press this button to stop.">
+                                        <i class="bi-check-circle-fill"></i>
+                                        Up
+                                    </a>
+                                    {{else}}
+                                    <a name="" id="" class="btn btn-sm btn-danger" href="#" role="button"
+                                        data-bs-toggle="tooltip"
+                                        data-bs-title="The tunnel is down. Press this button to start.">
+                                        <i class="bi-bootstrap-reboot"></i>
+                                        Down
+                                    </a>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-sm" role="group" aria-label="Button group name">
+                                        <button hx-trigger="click" hx-get="tunnel/get/{{$tunnel_id}}"
+                                            hx-target="#tunnel-edit-modal" hx-swap="outerHTML"
+                                            hx-trigger="click from:button" type="button" class="btn btn-primary btn-sm"
+                                            data-bs-toggle="tooltip" data-bs-title="Edit">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                        <button hx-trigger="click" hx-delete="tunnel/delete/{{$tunnel_id}}"
+                                            hx-confirm="Are you sure to delete {{$tunnel.Name}} tunnel?"
+                                            hx-swap="innerHTML" hx-target="#main"
+                                            type="button" class="btn btn-danger btn-sm" data-bs-toggle="tooltip"
+                                            data-bs-title="Delete">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {{end}}
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {{end}}
@@ -36,12 +120,16 @@
 <div class="modal fade" id="tunnel-edit-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
     role="dialog" aria-labelledby="modalTitleId" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg" role="document">
-        <form hx-post="/tunnel/update/{{.CurrentTunnel.Id}}"
-            hx-target="#main"
-        class="modal-content">
+        {{if eq .CurrentTunnel 0}}
+        <form hx-post="/tunnel/add" {{else}} <form hx-post="/tunnel/update/{{.CurrentTunnel}}" {{end}} hx-target="#main"
+            class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalTitleId">
+                    {{if eq .CurrentTunnel 0}}
                     Add tunnel
+                    {{else}}
+                    Edit tunnel
+                    {{end}}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -50,14 +138,18 @@
                     <label for="inputJumphost" class="col-2 col-form-label">Jumphost</label>
                     <div class="col">
                         <select class="form-select" name="inputJumphost" id="inputJumphost">
-                            {{- $Jumphost := .CurrentTunnel.Jumphost}}
-                            {{- range .Jumphosts}}
-                            {{- if eq .Name $Jumphost }}
-                            <option selected value="{{.Name}}">{{.Name}}</option>
+                            {{range $jumphost_id, $jumphost := $.Jumphosts}}
+                            {{with (index $.Tunnels $.CurrentTunnel)}}
+                            {{$Current := .Jumphost}}
+                            {{if eq $jumphost.Name $Current}}
+                            <option selected value="{{$jumphost_id}}">{{$jumphost.Name}}</option>
+                            {{else}}
+                            <option value="{{$jumphost_id}}">{{$jumphost.Name}}</option>
+                            {{- end}}
                             {{- else}}
-                            <option value="{{.Name}}">{{.Name}}</option>
+                            <option value="{{$jumphost_id}}">{{$jumphost.Name}}</option>
                             {{- end}}
-                            {{- end}}
+                            {{end}}
                         </select>
                     </div>
                 </div>
@@ -65,26 +157,28 @@
                     <label for="inputName" class="col-1 col-form-label">Name</label>
                     <div class="col">
                         <input type="text" class="form-control" name="inputName" id="inputName" placeholder="Name"
-                            value="{{.CurrentTunnel.Name}}" />
+                            value="{{ with (index .Tunnels .CurrentTunnel)}}{{ .Name }}{{end}}" />
                     </div>
                 </div>
                 <div class="mb-3 row">
                     <label for="inputPort" class="col-1 col-form-label">Local</label>
                     <div class="col-2">
                         <input type="text" class="form-control" name="inputPort" id="inputPort" placeholder="Port"
-                            value="{{.CurrentTunnel.Local_port}}" />
+                            value="{{ with (index .Tunnels .CurrentTunnel)}}{{ .Local_port }}{{end}}" />
                     </div>
                     <label for="inputRemote" class="col-1 col-form-label">Remote</label>
                     <div class="col">
-                        <input type="text" class="form-control" name="inputRemote" id="inputRemote" placeholder="host:port"
-                            value="{{.CurrentTunnel.Remote}}" />
+                        <input type="text" class="form-control" name="inputRemote" id="inputRemote"
+                            placeholder="host:port"
+                            value="{{ with (index .Tunnels .CurrentTunnel)}}{{ .Remote }}{{end}}" />
                     </div>
                 </div>
                 <div class="mb-3 row">
                     <label for="inputURL" class="col-1 col-form-label">URL</label>
                     <div class="col-8">
                         <input type="text" class="form-control" name="inputURL" id="inputURL"
-                            placeholder="http(s)://<server>:<port>/<path>" value="{{.CurrentTunnel.URL}}" />
+                            placeholder="http(s)://<server>:<port>/<path>"
+                            value="{{ with (index .Tunnels .CurrentTunnel)}}{{ .URL }}{{end}}" />
                     </div>
                 </div>
             </div>
@@ -92,7 +186,7 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     Close
                 </button>
-                <button type="submit" class="btn btn-primary"  data-bs-dismiss="modal">Save</button>
+                <button type="submit" class="btn btn-primary" data-bs-dismiss="modal">Save</button>
             </div>
         </form>
     </div>
@@ -101,7 +195,7 @@
 
 <!-- Optional: Place to the bottom of scripts -->
 <script>
-    document.body.addEventListener("showModal", function(e){
+    document.body.addEventListener("showModal", function (e) {
         var openModalButton = document.getElementById('open-modal');
         openModalButton.click(); // Trigger the click event
     })

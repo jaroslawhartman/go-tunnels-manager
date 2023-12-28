@@ -1,3 +1,4 @@
 go-tunnels-ui**
+**.sqlite
 tmp
 tmp/**
