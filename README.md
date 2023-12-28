@@ -4,7 +4,7 @@ A tool to manage SSH tunnels.
 
 This mini-project is my learning playground to get more experiences with Golang, HTMX and Bootstrap.
 
-Very early "Work in progress"...
+Very early "Work in progress"... not functional yet.
 
 ![Screenshoot](img/screenshoot.png)
 ![Screenshoot2](img/screenshoot2.png)
