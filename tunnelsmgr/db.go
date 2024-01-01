@@ -1,4 +1,4 @@
-package db
+package tunnelsmgr
 
 import (
 	"database/sql"
@@ -30,14 +30,7 @@ type Jumphost struct {
 
 type Jumphosts map[int]*Jumphost
 
-type JumphostsTunnelsMatrix struct {
-	Jumphost Jumphost
-	Tunnels  []Tunnel
-}
-
-type JumphostsTunnelsMatrixList []JumphostsTunnelsMatrix
-
-func Open(name string) *sql.DB {
+func (t *Tunnelmgr) Open(name string) {
 	var initialiseDB = false
 
 	if _, err := os.Stat(name); errors.Is(err, os.ErrNotExist) {
@@ -88,24 +81,24 @@ func Open(name string) *sql.DB {
 		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (3, "Prometheus", 8021, "192.168.1.101:9900", "http://localhost:8021", 1);
 		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (3, "Kafka UI", 8022, "192.168.1.102:9900", "http://localhost:8022", 1);
 		`
-		_, err = db.Exec(sqlStmt)
+		_, err = t.db.Exec(sqlStmt)
 		if err != nil {
 			log.Printf("%q: %s\n", err, sqlStmt)
 			log.Fatal(err)
 		}
 	}
 
-	return db
+	t.db = db
 }
 
-func Close(db *sql.DB) {
-	db.Close()
+func (t *Tunnelmgr) Close() {
+	t.db.Close()
 }
 
-func GetTunnels(db *sql.DB, filter string) Tunnels {
+func (t *Tunnelmgr) GetTunnels(filter string) Tunnels {
 	tunnels := make(Tunnels)
 
-	rows, err := db.Query(fmt.Sprintf(`SELECT t.id as id, j.id as jid, j.name as jname, j.command as jcommand,
+	rows, err := t.db.Query(fmt.Sprintf(`SELECT t.id as id, j.id as jid, j.name as jname, j.command as jcommand,
 		t.name, t.local_port, t.remote, t.url, t.status
 		from tunnels t, jumphosts j
 		where t.jumphost=j.id %s`, filter))
@@ -145,8 +138,8 @@ func GetTunnels(db *sql.DB, filter string) Tunnels {
 	return tunnels
 }
 
-func UpdateTunnel(db *sql.DB, id int, tunnel *Tunnel) string {
-	stmt, _ := db.Prepare("UPDATE tunnels set jumphost = ?, name = ?, local_port = ?, remote = ?, url = ? WHERE id = ?")
+func (t *Tunnelmgr) UpdateTunnel(id int, tunnel *Tunnel) string {
+	stmt, _ := t.db.Prepare("UPDATE tunnels set jumphost = ?, name = ?, local_port = ?, remote = ?, url = ? WHERE id = ?")
 	defer stmt.Close()
 
 	_, err := stmt.Exec(tunnel.JumphostId,
@@ -164,8 +157,8 @@ func UpdateTunnel(db *sql.DB, id int, tunnel *Tunnel) string {
 	return ""
 }
 
-func AddTunnel(db *sql.DB, tunnel *Tunnel) string {
-	stmt, _ := db.Prepare("INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) values (?, ?, ?, ?, ?, ?)")
+func (t *Tunnelmgr) AddTunnel(tunnel *Tunnel) string {
+	stmt, _ := t.db.Prepare("INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) values (?, ?, ?, ?, ?, ?)")
 	defer stmt.Close()
 
 	_, err := stmt.Exec(tunnel.JumphostId,
@@ -183,8 +176,8 @@ func AddTunnel(db *sql.DB, tunnel *Tunnel) string {
 	return ""
 }
 
-func DeleteTunnel(db *sql.DB, id int) string {
-	stmt, err := db.Prepare("DELETE FROM tunnels WHERE id = ?")
+func (t *Tunnelmgr) DeleteTunnel(id int) string {
+	stmt, err := t.db.Prepare("DELETE FROM tunnels WHERE id = ?")
 
 	if err != nil {
 		log.Println(err)
@@ -202,10 +195,10 @@ func DeleteTunnel(db *sql.DB, id int) string {
 	return ""
 }
 
-func GetJumphosts(db *sql.DB) Jumphosts {
+func (t *Tunnelmgr) GetJumphosts() Jumphosts {
 	jumphosts := make(Jumphosts)
 
-	rows, err := db.Query(`SELECT id, name, command	 from jumphosts`)
+	rows, err := t.db.Query(`SELECT id, name, command	 from jumphosts`)
 
 	if err != nil {
 		log.Fatal(err)
@@ -230,8 +223,8 @@ func GetJumphosts(db *sql.DB) Jumphosts {
 	return jumphosts
 }
 
-func DeleteJumphost(db *sql.DB, id int) string {
-	stmt, err := db.Prepare("DELETE FROM jumphosts WHERE id = ?")
+func (t *Tunnelmgr) DeleteJumphost(id int) string {
+	stmt, err := t.db.Prepare("DELETE FROM jumphosts WHERE id = ?")
 
 	if err != nil {
 		log.Println(err)
@@ -247,46 +240,4 @@ func DeleteJumphost(db *sql.DB, id int) string {
 	}
 
 	return ""
-}
-
-func GetJumphostsTunnelsMatrix(db *sql.DB) JumphostsTunnelsMatrixList {
-	var output JumphostsTunnelsMatrixList
-
-	jumphosts := GetJumphosts(db)
-
-	for ji, j := range jumphosts {
-		log.Println("Jumphosts ")
-		log.Println(ji, j)
-
-		tunnelsList := make([]Tunnel, 0)
-		tunnels := GetTunnels(db, fmt.Sprintf(" AND jid=%d ", ji))
-
-		for ti, t := range tunnels {
-			tunnelsList = append(tunnelsList, Tunnel{
-				JumphostId: t.JumphostId,
-				Jumphost:   t.Jumphost,
-				Command:    t.Command,
-				Name:       t.Name,
-				Local_port: t.Local_port,
-				Remote:     t.Remote,
-				URL:        t.URL,
-				Status:     t.Status,
-			})
-
-			log.Println("Tunnel ")
-			log.Println(ti, t)
-		}
-
-		matrix := JumphostsTunnelsMatrix{
-			Jumphost: Jumphost{
-				Name:    j.Name,
-				Command: j.Command,
-			},
-			Tunnels: tunnelsList,
-		}
-
-		output = append(output, matrix)
-	}
-
-	return output
 }

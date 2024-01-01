@@ -15,3 +15,4 @@ Very early "Work in progress"... not functional yet.
  * Bootstrap 5
  * Air (auto-reload of Go app)
  * go-chi
+ * https://github.com/mattn/go-sqlite3
