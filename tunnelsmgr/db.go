@@ -30,8 +30,56 @@ type Jumphost struct {
 
 type Jumphosts map[int]*Jumphost
 
-func (t *Tunnelmgr) Open(name string) {
+func (t *Tunnelmgr) InitDB() {
+	log.Println("Creating DB structure")
+	sqlStmt := `
+	CREATE TABLE "jumphosts" (
+		"id"	INTEGER NOT NULL,
+		"name"	TEXT,
+		"command"	TEXT,
+		PRIMARY KEY("id" AUTOINCREMENT)
+	);
+
+	CREATE TABLE "tunnels" (
+		"id"	INTEGER NOT NULL,
+		"jumphost"	INTEGER,
+		"name"	INTEGER,
+		"local_port"	INTEGER UNIQUE,
+		"remote"	INTEGER,
+		"url"	TEXT,
+		"status"	INTEGER,
+		PRIMARY KEY("id" AUTOINCREMENT),
+		CONSTRAINT fk_jumphosts
+		FOREIGN KEY("jumphost") REFERENCES jumphosts("id") ON DELETE CASCADE
+	);
+
+	INSERT INTO jumphosts (name, command) VALUES ("PreProd", "ssh -N -L3000:localhost:3000 192.168.1.200");
+	INSERT INTO jumphosts (name, command) VALUES ("Prod", "gcloud compute ssh postman-vm --configuration tef-cloudlab2 -- -NL8080:172.29.17.197:80");
+	INSERT INTO jumphosts (name, command) VALUES ("Dev", "gcloud compute ssh postman-vm --configuration tef-cloudlab2 -- -NL8080:172.29.17.197:80");
+
+	INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (1, "Grafana", 8000, "192.168.1.100:9900", "http://localhost:8000", 1);
+	INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (1, "Prometheus", 8001, "192.168.1.101:9900", "http://localhost:8001", 0);
+	INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (1, "Kafka UI", 8002, "192.168.1.102:9900", "http://localhost:8002", 1);
+
+	INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (2, "Grafana", 8010, "192.168.1.100:9900", "http://localhost:8000", 1);
+	INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (2, "Prometheus", 8011, "192.168.1.101:9900", "http://localhost:8001", 0);
+	INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (2, "Kafka UI", 8012, "192.168.1.102:9900", "http://localhost:8002", 0);
+
+	INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (3, "Grafana", 8020, "192.168.1.100:9900", "http://localhost:8020", 0);
+	INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (3, "Prometheus", 8021, "192.168.1.101:9900", "http://localhost:8021", 1);
+	INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (3, "Kafka UI", 8022, "192.168.1.102:9900", "http://localhost:8022", 1);
+	`
+	_, err := t.db.Exec(sqlStmt)
+	if err != nil {
+		log.Printf("%q: %s\n", err, sqlStmt)
+		log.Fatal(err)
+	}
+}
+
+func (t *Tunnelmgr) OpenDB() {
 	var initialiseDB = false
+
+	name := t.cfg.DBFilename
 
 	if _, err := os.Stat(name); errors.Is(err, os.ErrNotExist) {
 		initialiseDB = true
@@ -41,57 +89,14 @@ func (t *Tunnelmgr) Open(name string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	t.db = db
 
 	if initialiseDB {
-		log.Println("Creating DB sructure")
-		sqlStmt := `
-		CREATE TABLE "jumphosts" (
-			"id"	INTEGER NOT NULL,
-			"name"	TEXT,
-			"command"	TEXT,
-			PRIMARY KEY("id" AUTOINCREMENT)
-		);
-
-		CREATE TABLE "tunnels" (
-			"id"	INTEGER NOT NULL,
-			"jumphost"	INTEGER,
-			"name"	INTEGER,
-			"local_port"	INTEGER UNIQUE,
-			"remote"	INTEGER,
-			"url"	TEXT,
-			"status"	INTEGER,
-			PRIMARY KEY("id" AUTOINCREMENT),
-			CONSTRAINT fk_jumphosts
-			FOREIGN KEY("jumphost") REFERENCES jumphosts("id") ON DELETE CASCADE
-		);
-
-		INSERT INTO jumphosts (name, command) VALUES ("PreProd", "ssh -N -L3000:localhost:3000 192.168.1.200");
-		INSERT INTO jumphosts (name, command) VALUES ("Prod", "gcloud compute ssh postman-vm --configuration tef-cloudlab2 -- -NL8080:172.29.17.197:80");
-		INSERT INTO jumphosts (name, command) VALUES ("Dev", "gcloud compute ssh postman-vm --configuration tef-cloudlab2 -- -NL8080:172.29.17.197:80");
-
-		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (1, "Grafana", 8000, "192.168.1.100:9900", "http://localhost:8000", 1);
-		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (1, "Prometheus", 8001, "192.168.1.101:9900", "http://localhost:8001", 0);
-		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (1, "Kafka UI", 8002, "192.168.1.102:9900", "http://localhost:8002", 1);
-
-		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (2, "Grafana", 8010, "192.168.1.100:9900", "http://localhost:8000", 1);
-		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (2, "Prometheus", 8011, "192.168.1.101:9900", "http://localhost:8001", 0);
-		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (2, "Kafka UI", 8012, "192.168.1.102:9900", "http://localhost:8002", 0);
-
-		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (3, "Grafana", 8020, "192.168.1.100:9900", "http://localhost:8020", 0);
-		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (3, "Prometheus", 8021, "192.168.1.101:9900", "http://localhost:8021", 1);
-		INSERT INTO tunnels (jumphost, name, local_port, remote, url, status) VALUES (3, "Kafka UI", 8022, "192.168.1.102:9900", "http://localhost:8022", 1);
-		`
-		_, err = t.db.Exec(sqlStmt)
-		if err != nil {
-			log.Printf("%q: %s\n", err, sqlStmt)
-			log.Fatal(err)
-		}
+		t.InitDB()
 	}
-
-	t.db = db
 }
 
-func (t *Tunnelmgr) Close() {
+func (t *Tunnelmgr) CloseDB() {
 	t.db.Close()
 }
 

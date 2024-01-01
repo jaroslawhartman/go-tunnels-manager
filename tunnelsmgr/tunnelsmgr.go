@@ -2,6 +2,7 @@ package tunnelsmgr
 
 import (
 	"database/sql"
+	"embed"
 	"flag"
 	"html/template"
 	"log"
@@ -35,6 +36,11 @@ type TemplateArg struct {
 	Tunnels       Tunnels
 }
 
+var (
+	//go:embed templates/*
+	files embed.FS
+)
+
 ///////////////////////////
 //
 // Chi Handlers
@@ -43,7 +49,7 @@ type TemplateArg struct {
 
 func (t *Tunnelmgr) HandlerGetRoot(w http.ResponseWriter, r *http.Request) {
 	log.Println("Get /")
-	tmpl := template.Must(template.ParseFiles(
+	tmpl := template.Must(template.ParseFS(files,
 		"templates/index.html",
 		"templates/tunnels.html",
 		"templates/jumphosts.html"))
@@ -56,7 +62,7 @@ func (t *Tunnelmgr) HandlerGetRoot(w http.ResponseWriter, r *http.Request) {
 
 func (t *Tunnelmgr) HandlerGetJumphosts(w http.ResponseWriter, r *http.Request) {
 	log.Println("Get /jumphosts")
-	tmpl := template.Must(template.ParseFiles(
+	tmpl := template.Must(template.ParseFS(files,
 		"templates/index.html",
 		"templates/tunnels.html",
 		"templates/jumphosts.html"))
@@ -73,7 +79,7 @@ func (t *Tunnelmgr) HandlerDeleteJumphosts(w http.ResponseWriter, r *http.Reques
 
 	err := t.DeleteJumphost(id)
 
-	tmpl := template.Must(template.ParseFiles(
+	tmpl := template.Must(template.ParseFS(files,
 		"templates/index.html",
 		"templates/tunnels.html",
 		"templates/jumphosts.html"))
@@ -93,7 +99,7 @@ func (t *Tunnelmgr) HandlerGetTunnel(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(tunnelId)
 
-	tmpl := template.Must(template.ParseFiles(
+	tmpl := template.Must(template.ParseFS(files,
 		"templates/index.html",
 		"templates/tunnels.html",
 		"templates/jumphosts.html"))
@@ -128,7 +134,7 @@ func (t *Tunnelmgr) HandlerPostUpdateTunnel(w http.ResponseWriter, r *http.Reque
 		URL:        inputURL,
 	})
 
-	tmpl := template.Must(template.ParseFiles(
+	tmpl := template.Must(template.ParseFS(files,
 		"templates/index.html",
 		"templates/tunnels.html",
 		"templates/jumphosts.html"))
@@ -161,7 +167,7 @@ func (t *Tunnelmgr) HandlerPostAddTunnel(w http.ResponseWriter, r *http.Request)
 		URL:        inputURL,
 	})
 
-	tmpl := template.Must(template.ParseFiles(
+	tmpl := template.Must(template.ParseFS(files,
 		"templates/index.html",
 		"templates/tunnels.html",
 		"templates/jumphosts.html"))
@@ -184,7 +190,7 @@ func (t *Tunnelmgr) HandlerDeleteTunnel(w http.ResponseWriter, r *http.Request) 
 
 	err := t.DeleteTunnel(tunnelId)
 
-	tmpl := template.Must(template.ParseFiles(
+	tmpl := template.Must(template.ParseFS(files,
 		"templates/index.html",
 		"templates/tunnels.html",
 		"templates/jumphosts.html"))
@@ -225,8 +231,8 @@ func (t *Tunnelmgr) Config() {
 func (t *Tunnelmgr) Run() {
 	t.Config()
 
-	t.Open(t.cfg.DBFilename)
-	defer t.Close()
+	t.OpenDB()
+	defer t.CloseDB()
 
 	log.Printf("Starting server at %s", t.cfg.Listener)
 
