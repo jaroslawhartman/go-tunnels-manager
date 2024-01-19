@@ -12,12 +12,20 @@
 
 <div class="row justify-content-center align-items-center g-2" style="margin-top: 10px;">
     <div class="col">
-        <button type="button" class="btn btn-primary">
+        <button type="button" class="btn btn-primary"
+        data-bs-toggle="modal"
+        data-bs-target="#jumphost-edit-modal"
+        >
             <span class="bi-plus-circle"></span>
             <b class="d-inline">
                 New Jumphost
             </b>
         </button>
+
+        <button hidden id="open-modal" type="button" class="btn btn-primary" data-bs-toggle="modal"
+        data-bs-target="#jumphost-edit-modal">
+        Hidden
+    </button>
     </div>
 </div>
 <div class="row justify-content-center align-items-center g-2 row-gap-4" size="height: 200px">
@@ -41,10 +49,62 @@
                         >
                             Delete
                         </button>
+                        <button hx-trigger="click" hx-get="jumphost/get/{{$jumphost_id}}"
+                        hx-target="#jumphost-edit-modal" hx-swap="outerHTML"
+                        hx-trigger="click from:button" type="button" class="btn btn-primary"
+                        data-bs-toggle="tooltip" data-bs-title="Edit">
+                        Edit
+                    </button>
                     </p>
                 </div>
             </div>
         </div>
     </div>
 {{end}}
+
+{{block "jumphost-edit-modal" . }}
+<!-- Modal Body -->
+<!-- if you want to close by clicking outside the modal, delete the last endpoint:data-bs-backdrop and data-bs-keyboard -->
+<div class="modal fade" id="jumphost-edit-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
+    role="dialog" aria-labelledby="modalTitleId" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg" role="document">
+        {{if eq .CurrentJumphost 0}}
+        <form hx-post="/jumphost/add" {{else}} <form hx-post="/jumphost/update/{{.CurrentJumphost}}" {{end}} hx-target="#main"
+            class="modal-content">
+            <div class="modal-body">
+                <div class="mb-3 row">
+                    <label for="inputName" class="col-1 col-form-label">Name</label>
+                    <div class="col">
+                        <input type="text" class="form-control" name="inputName" id="inputName" placeholder="Name"
+                            value="{{ with (index .Jumphosts .CurrentJumphost)}}{{ .Name }}{{end}}" />
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="inputCommand" class="col-1 col-form-label">Command</label>
+                    <div class="col">
+                        <input type="text" class="form-control" name="inputCommand" id="inputCommand"
+                            placeholder="http(s)://<server>:<port>/<path>"
+                            value="{{ with (index .Jumphosts .CurrentJumphost)}}{{ .Command }}{{end}}" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Close
+                </button>
+                <button type="submit" class="btn btn-primary" data-bs-dismiss="modal">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}
+
+<!-- Optional: Place to the bottom of scripts -->
+<script>
+    document.body.addEventListener("showModal", function (e) {
+        var openModalButton = document.getElementById('open-modal');
+        openModalButton.click(); // Trigger the click event
+    })
+</script>
+
 {{end}}

@@ -34,8 +34,7 @@
         }
 
         .b-example-divider {
-            width: 100%;
-            height: 3rem;
+            width: 1%;
             background-color: rgba(0, 0, 0, .1);
             border: solid rgba(0, 0, 0, .15);
             border-width: 1px 0;
@@ -44,8 +43,8 @@
 
         .b-example-vr {
             flex-shrink: 0;
-            width: 1.5rem;
-            height: 100vh;
+            width: 0.1vw;
+            min-height: 100vh;
         }
 
         .bi {
@@ -110,7 +109,6 @@
           main {
             height: 100vh;
             height: -webkit-fill-available;
-            max-height: 100vh;
             overflow-x: auto;
             overflow-y: hidden;
           }
@@ -219,8 +217,6 @@
     </svg>
 
     <main class="d-flex flex-nowrap">
-        <h1 class="visually-hidden">Sidebars examples</h1>
-
         <div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark" style="width: 280px;">
             <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
                 <span class="fs-4">
@@ -271,6 +267,9 @@
             {{end}}
             {{if eq .Page "jumphosts"}}
             {{template "jumphosts" .}}
+            {{end}}
+            {{if eq .Page "settings"}}
+            {{template "settings" .}}
             {{end}}
         </div>
         </div>

@@ -50,7 +50,8 @@ func (t *Tunnelmgr) InitDB() {
 		"status"	INTEGER,
 		PRIMARY KEY("id" AUTOINCREMENT),
 		CONSTRAINT fk_jumphosts
-		FOREIGN KEY("jumphost") REFERENCES jumphosts("id") ON DELETE CASCADE
+			FOREIGN KEY("jumphost")
+			REFERENCES jumphosts("id") ON DELETE CASCADE
 	);
 
 	INSERT INTO jumphosts (name, command) VALUES ("PreProd", "ssh -N -L3000:localhost:3000 192.168.1.200");
@@ -85,7 +86,7 @@ func (t *Tunnelmgr) OpenDB() {
 		initialiseDB = true
 	}
 
-	db, err := sql.Open("sqlite3", name)
+	db, err := sql.Open("sqlite3", name+"?_foreign_keys=on")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -226,6 +227,37 @@ func (t *Tunnelmgr) GetJumphosts() Jumphosts {
 	}
 
 	return jumphosts
+}
+
+func (t *Tunnelmgr) UpdateJumphost(id int, jumphost *Jumphost) string {
+	stmt, _ := t.db.Prepare("UPDATE jumphosts set name = ?, command = ? WHERE id = ?")
+	defer stmt.Close()
+
+	_, err := stmt.Exec(jumphost.Name,
+		jumphost.Command,
+		id)
+
+	if err != nil {
+		log.Println(err)
+		return err.Error()
+	}
+
+	return ""
+}
+
+func (t *Tunnelmgr) AddJumphost(jumphost *Jumphost) string {
+	stmt, _ := t.db.Prepare("INSERT INTO jumphosts (name, command) values (?, ?)")
+	defer stmt.Close()
+
+	_, err := stmt.Exec(jumphost.Name,
+		jumphost.Command)
+
+	if err != nil {
+		log.Println(err)
+		return err.Error()
+	}
+
+	return ""
 }
 
 func (t *Tunnelmgr) DeleteJumphost(id int) string {
